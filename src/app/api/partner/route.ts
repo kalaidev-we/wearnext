@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateEnquiryId } from "@/lib/utils";
+import { insertPartnershipRecord } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
 
-    // Validate required fields
     const {
       fullName,
       companyName,
@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(businessEmail)) {
       return NextResponse.json(
@@ -42,21 +41,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate unique partnership reference ID
     const referenceId = `PARTNER-${generateEnquiryId()}`;
 
-    // Log structured submission (Ready to connect to Supabase/PostgreSQL/Resend)
-    console.log(`[WearNextFabs] Partnership Application Received [${referenceId}]:`, {
-      fullName,
-      companyName,
-      businessEmail,
-      phoneNumber,
-      country,
-      partnershipType,
-      website: data.website || "N/A",
-      proposalDescription,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      await insertPartnershipRecord({
+        reference_id: referenceId,
+        full_name: fullName,
+        company_name: companyName,
+        business_email: businessEmail,
+        phone_number: phoneNumber,
+        country,
+        partnership_type: partnershipType,
+        website: data.website || "",
+        proposal_description: proposalDescription,
+        consent: Boolean(consent),
+      });
+    } catch (dbErr) {
+      console.warn("[WearNextFabs] Supabase storage notice:", dbErr);
+    }
+
+    console.log(`[WearNextFabs] Partnership Application Processed [${referenceId}] for ${companyName}`);
 
     return NextResponse.json({
       success: true,

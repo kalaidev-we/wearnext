@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateEnquiryId } from "@/lib/utils";
+import { insertContactRecord } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,14 +25,21 @@ export async function POST(req: NextRequest) {
 
     const referenceId = `CONTACT-${generateEnquiryId()}`;
 
-    console.log(`[WearNextFabs] Contact Form Message [${referenceId}]:`, {
-      name,
-      email,
-      phone: phone || "Not provided",
-      subject,
-      message,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      await insertContactRecord({
+        reference_id: referenceId,
+        name,
+        email,
+        phone: phone || "",
+        subject,
+        message,
+        consent: Boolean(consent),
+      });
+    } catch (dbErr) {
+      console.warn("[WearNextFabs] Supabase contact storage notice:", dbErr);
+    }
+
+    console.log(`[WearNextFabs] Contact Form Message Processed [${referenceId}] from ${name} (${email})`);
 
     return NextResponse.json({
       success: true,
